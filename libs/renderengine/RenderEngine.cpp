@@ -16,6 +16,7 @@
 
 #include <renderengine/RenderEngine.h>
 
+#include "gl/GLESRenderEngine.h"
 #include "renderengine/ExternalTexture.h"
 #include "skia/GaneshVkRenderEngine.h"
 #include "skia/GraphiteVkRenderEngine.h"
@@ -72,7 +73,7 @@ std::unique_ptr<RenderEngine> RenderEngine::create(const RenderEngineCreationArg
             };
         } else { // GL
             createInstanceFactory = [args]() {
-                return android::renderengine::skia::SkiaGLRenderEngine::create(args);
+                return android::renderengine::gl::GLESRenderEngine::create(args);
             };
         }
     }

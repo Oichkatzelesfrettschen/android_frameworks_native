@@ -650,7 +650,7 @@ static void drawEdgeExtensionLayers(SkiaRenderEngine* renderengine, const Displa
     for (float alpha : {0.5, 0.0, 1.0}) {
         layer.alpha = alpha;
         auto layers = std::vector<LayerSettings>{layer};
-        renderengine->drawLayers(display, layers, dstTexture, base::unique_fd());
+        renderengine->drawLayers(display, layers, dstTexture, false, base::unique_fd());
     }
 }
 

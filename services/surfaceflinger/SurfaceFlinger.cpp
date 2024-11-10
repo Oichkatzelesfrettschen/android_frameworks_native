@@ -20,7 +20,7 @@
 #pragma clang diagnostic ignored "-Wextra"
 
 //#define LOG_NDEBUG 0
-#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+#define SFTRACE_TAG SFTRACE_TAG_GRAPHICS
 
 #include "SurfaceFlinger.h"
 
@@ -831,7 +831,7 @@ uint32_t SurfaceFlinger::getNewTexture() {
         if (!mTexturePool.empty()) {
             uint32_t name = mTexturePool.back();
             mTexturePool.pop_back();
-            ATRACE_INT("TexturePoolSize", mTexturePool.size());
+            SFTRACE_INT("TexturePoolSize", mTexturePool.size());
             return name;
         }
 
@@ -858,7 +858,7 @@ void SurfaceFlinger::deleteTextureAsync(uint32_t texture) {
     // We don't change the pool size, so the fix-up logic in postComposition will decide whether
     // to actually delete this or not based on mTexturePoolSize
     mTexturePool.push_back(texture);
-    ATRACE_INT("TexturePoolSize", mTexturePool.size());
+    SFTRACE_INT("TexturePoolSize", mTexturePool.size());
 }
 
 void chooseRenderEngineType(renderengine::RenderEngineCreationArgs::Builder& builder) {
@@ -3411,13 +3411,13 @@ void SurfaceFlinger::onCompositionPresented(PhysicalDisplayId pacesetterId,
             const size_t offset = mTexturePool.size();
             mTexturePool.resize(mTexturePoolSize);
             getRenderEngine().genTextures(refillCount, mTexturePool.data() + offset);
-            ATRACE_INT("TexturePoolSize", mTexturePool.size());
+            SFTRACE_INT("TexturePoolSize", mTexturePool.size());
         } else if (mTexturePool.size() > mTexturePoolSize) {
             const size_t deleteCount = mTexturePool.size() - mTexturePoolSize;
             const size_t offset = mTexturePoolSize;
             getRenderEngine().deleteTextures(deleteCount, mTexturePool.data() + offset);
             mTexturePool.resize(mTexturePoolSize);
-            ATRACE_INT("TexturePoolSize", mTexturePool.size());
+            SFTRACE_INT("TexturePoolSize", mTexturePool.size());
         }
     }
 
@@ -4044,6 +4044,8 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
 
     // Recreate the DisplayDevice if the surface or sequence ID changed.
     if (currentBinder != drawingBinder || currentState.sequenceId != drawingState.sequenceId) {
+        getRenderEngine().cleanFramebufferCache();
+
         if (const auto display = getDisplayDeviceLocked(displayToken)) {
             display->disconnect();
             if (display->isVirtual()) {

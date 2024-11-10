@@ -65,6 +65,7 @@ public:
                                          ui::Dataspace dataspace,
                                          const std::shared_ptr<ExternalTexture>& gainmap) override;
 
+    void cleanFramebufferCache() override;
     int getContextPriority() override;
     bool supportsBackgroundBlur() override;
     void onActiveDisplaySizeChanged(ui::Size size) override;

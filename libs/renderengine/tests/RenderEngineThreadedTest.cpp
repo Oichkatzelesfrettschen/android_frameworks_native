@@ -73,6 +73,18 @@ TEST_F(RenderEngineThreadedTest, primeCache) {
     mThreadedRE->getContextPriority();
 }
 
+TEST_F(RenderEngineThreadedTest, genTextures) {
+    uint32_t texName;
+    EXPECT_CALL(*mRenderEngine, genTextures(1, &texName));
+    mThreadedRE->genTextures(1, &texName);
+}
+
+TEST_F(RenderEngineThreadedTest, deleteTextures) {
+    uint32_t texName;
+    EXPECT_CALL(*mRenderEngine, deleteTextures(1, &texName));
+    mThreadedRE->deleteTextures(1, &texName);
+}
+
 TEST_F(RenderEngineThreadedTest, getMaxTextureSize_returns20) {
     size_t size = 20;
     EXPECT_CALL(*mRenderEngine, getMaxTextureSize()).WillOnce(Return(size));

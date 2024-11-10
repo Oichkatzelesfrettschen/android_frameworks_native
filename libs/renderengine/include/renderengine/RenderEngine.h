@@ -22,6 +22,8 @@
 #include <math/mat4.h>
 #include <renderengine/DisplaySettings.h>
 #include <renderengine/ExternalTexture.h>
+#include <renderengine/Framebuffer.h>
+#include <renderengine/Image.h>
 #include <renderengine/LayerSettings.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -236,6 +238,8 @@ public:
     // resources used by the most recently drawn frame. If the frame is still
     // being drawn, then the implementation is free to silently ignore this call.
     virtual void cleanupPostRender() = 0;
+
+    virtual void cleanFramebufferCache() = 0;
 
     // Returns the priority this context was actually created with. Note: this
     // may not be the same as specified at context creation time, due to
