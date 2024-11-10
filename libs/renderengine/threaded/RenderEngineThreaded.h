@@ -56,6 +56,7 @@ public:
     ftl::Future<FenceResult> drawLayers(const DisplaySettings& display,
                                         const std::vector<LayerSettings>& layers,
                                         const std::shared_ptr<ExternalTexture>& buffer,
+                                        const bool useFramebufferCache,
                                         base::unique_fd&& bufferFence) override;
     ftl::Future<FenceResult> drawGainmap(const std::shared_ptr<ExternalTexture>& sdr,
                                          base::borrowed_fd&& sdrFence,
@@ -78,7 +79,7 @@ protected:
                             const DisplaySettings& display,
                             const std::vector<LayerSettings>& layers,
                             const std::shared_ptr<ExternalTexture>& buffer,
-                            base::unique_fd&& bufferFence) override;
+                            const bool useFramebufferCache, base::unique_fd&& bufferFence) override;
     void drawGainmapInternal(const std::shared_ptr<std::promise<FenceResult>>&& resultPromise,
                              const std::shared_ptr<ExternalTexture>& sdr,
                              base::borrowed_fd&& sdrFence,
