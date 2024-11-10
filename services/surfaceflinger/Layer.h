@@ -531,6 +531,8 @@ private:
     void releasePreviousBuffer();
     void resetDrawingStateBufferInfo();
 
+    const uint32_t mTextureName;
+
     // Transform hint provided to the producer. This must be accessed holding
     // the mStateLock.
     std::optional<ui::Transform::RotationFlags> mTransformHint = std::nullopt;

@@ -584,6 +584,7 @@ struct BaseLayerProperties {
                     const renderengine::LayerSettings layer = layerSettings.back();
                     EXPECT_THAT(layer.source.buffer.buffer, Not(IsNull()));
                     EXPECT_THAT(layer.source.buffer.fence, Not(IsNull()));
+                    EXPECT_EQ(DEFAULT_TEXTURE_ID, layer.source.buffer.textureName);
                     EXPECT_EQ(true, layer.source.buffer.usePremultipliedAlpha);
                     EXPECT_EQ(false, layer.source.buffer.isOpaque);
                     EXPECT_EQ(0.0, layer.geometry.roundedCornersRadius.x);
@@ -857,14 +858,18 @@ struct BufferLayerVariant : public BaseLayerVariant<LayerProperties> {
     using Base = BaseLayerVariant<LayerProperties>;
 
     static frontend::RequestedLayerState createLayer(CompositionTest* test) {
-        frontend::RequestedLayerState layer = Base::template createLayerWithFactory<
-                frontend::RequestedLayerState>(test, [test]() {
-            LayerCreationArgs args(test->mFlinger.flinger(), sp<Client>(), "test-layer",
-                                   LayerProperties::LAYER_FLAGS, LayerMetadata());
-            auto legacyLayer = sp<Layer>::make(args);
+        test->mFlinger.mutableTexturePool().push_back(DEFAULT_TEXTURE_ID);
+
+        frontend::RequestedLayerState layer =
+                Base::template createLayerWithFactory<
+                        frontend::RequestedLayerState>(test, [test]() {
+                    LayerCreationArgs args(test->mFlinger.flinger(), sp<Client>(), "test-layer",
+                                           LayerProperties::LAYER_FLAGS, LayerMetadata());
+                    auto legacyLayer = sp<Layer>::make(args);
             test->mFlinger.injectLegacyLayer(legacyLayer);
+                    args.textureName = test->mFlinger.mutableTexturePool().back();
             return frontend::RequestedLayerState(args);
-        });
+                });
 
         LayerProperties::setupLayerState(test, layer);
 

@@ -135,7 +135,8 @@ Layer::Layer(const surfaceflinger::LayerCreationArgs& args)
         mFlinger(sp<SurfaceFlinger>::fromExisting(args.flinger)),
         mName(base::StringPrintf("%s#%d", args.name.c_str(), sequence)),
         mWindowType(static_cast<WindowInfo::Type>(
-                args.metadata.getInt32(gui::METADATA_WINDOW_TYPE, 0))) {
+                args.metadata.getInt32(gui::METADATA_WINDOW_TYPE, 0)),
+        mTextureName(args.textureName)) {
     ALOGV("Creating Layer %s", getDebugName());
 
     mDrawingState.crop = {0, 0, -1, -1};
@@ -164,6 +165,8 @@ Layer::Layer(const surfaceflinger::LayerCreationArgs& args)
     mPotentialCursor = args.flags & ISurfaceComposerClient::eCursorWindow;
     mLayerFEs.emplace_back(frontend::LayerHierarchy::TraversalPath{static_cast<uint32_t>(sequence)},
                            args.flinger->getFactory().createLayerFE(mName, this));
+
+    mDrawingState.textureName = mTextureName;
 }
 
 void Layer::onFirstRef() {
@@ -178,6 +181,13 @@ Layer::~Layer() {
         callReleaseBufferCallback(mDrawingState.releaseBufferListener,
                                   mBufferInfo.mBuffer->getBuffer(), mBufferInfo.mFrameNumber,
                                   mBufferInfo.mFence);
+    }
+    if (!isClone()) {
+        // The original layer and the clone layer share the same texture. Therefore, only one of
+        // the layers, in this case the original layer, needs to handle the deletion. The original
+        // layer and the clone should be removed at the same time so there shouldn't be any issue
+        // with the clone layer trying to use the deleted texture.
+        mFlinger->deleteTextureAsync(mTextureName);
     }
     const int32_t layerId = getSequence();
     mFlinger->mTimeStats->onDestroy(layerId);
