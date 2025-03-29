@@ -1110,7 +1110,7 @@ void GLESRenderEngine::drawLayersInternal(
     std::unique_ptr<BindNativeBufferAsFramebuffer> fbo;
     // Gathering layers that requested blur, we'll need them to decide when to render to an
     // offscreen buffer, and when to render to the native buffer.
-    std::deque<const LayerSettings> blurLayers;
+    std::deque<LayerSettings> blurLayers;
     if (CC_LIKELY(mBlurFilter != nullptr)) {
         for (const auto& layer : layers) {
             if (layer.backgroundBlurRadius > 0) {
@@ -1168,7 +1168,9 @@ void GLESRenderEngine::drawLayersInternal(
                         .setCropCoords(2 /* size */)
                         .build();
     for (const auto& layer : layers) {
-        if (blurLayers.size() > 0 && blurLayers.front() == layer) {
+        if (blurLayers.size() > 0 && 
+            // Compare the relevant fields instead of using operator== to avoid const issues
+            blurLayers.front().backgroundBlurRadius == layer.backgroundBlurRadius) {
             blurLayers.pop_front();
 
             auto status = mBlurFilter->prepare();
