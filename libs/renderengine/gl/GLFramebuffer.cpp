@@ -93,6 +93,20 @@ void GLFramebuffer::allocateBuffers(uint32_t width, uint32_t height, void* data)
     }
 }
 
+bool GLFramebuffer::attachImage(EGLImageKHR image, int32_t width, int32_t height) {
+    ATRACE_CALL();
+    glBindTexture(GL_TEXTURE_2D, mTextureName);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, static_cast<GLeglImageOES>(image));
+    bind();
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTextureName, 0);
+    mStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    unbind();
+    glBindTexture(GL_TEXTURE_2D, 0);
+    mBufferWidth = width;
+    mBufferHeight = height;
+    return mStatus == GL_FRAMEBUFFER_COMPLETE;
+}
+
 void GLFramebuffer::bind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, mFramebufferName);
 }

@@ -434,6 +434,7 @@ GLESRenderEngine::~GLESRenderEngine() {
     std::lock_guard<std::mutex> lock(mRenderingMutex);
     unbindFrameBuffer(mDrawingBuffer.get());
     mDrawingBuffer = nullptr;
+    mAttachedFramebuffers.clear();
     while (!mFramebufferImageCache.empty()) {
         EGLImageKHR expired = mFramebufferImageCache.front().second;
         mFramebufferImageCache.pop_front();
@@ -988,6 +989,37 @@ bool GLESRenderEngine::useProtectedContext(bool useProtectedContext) {
     }
     return success;
 }
+GLFramebuffer* GLESRenderEngine::getAttachedFramebuffer(ANativeWindowBuffer* nativeBuffer) {
+    ATRACE_CALL();
+    const uint64_t bufferId = GraphicBuffer::from(nativeBuffer)->getId();
+    EGLImageKHR image = createFramebufferImageIfNeeded(nativeBuffer, false, true);
+    if (image == EGL_NO_IMAGE_KHR) {
+        return nullptr;
+    }
+    for (auto it = mAttachedFramebuffers.begin(); it != mAttachedFramebuffers.end(); ++it) {
+        if (it->bufferId == bufferId) {
+            if (it->image == image) {
+                return it->framebuffer.get();
+            }
+            // The image cache evicted and recreated this buffer's image.
+            mAttachedFramebuffers.erase(it);
+            break;
+        }
+    }
+    auto framebuffer = std::make_unique<GLFramebuffer>(*this);
+    if (!framebuffer->attachImage(image, nativeBuffer->width, nativeBuffer->height)) {
+        ALOGE("Attached framebuffer for buffer %" PRIu64 " incomplete: %#x", bufferId,
+              framebuffer->getStatus());
+        return nullptr;
+    }
+    while (!mAttachedFramebuffers.empty() &&
+           mAttachedFramebuffers.size() >= mFramebufferImageCacheSize) {
+        mAttachedFramebuffers.pop_front();
+    }
+    mAttachedFramebuffers.push_back({bufferId, image, std::move(framebuffer)});
+    return mAttachedFramebuffers.back().framebuffer.get();
+}
+
 EGLImageKHR GLESRenderEngine::createFramebufferImageIfNeeded(ANativeWindowBuffer* nativeBuffer,
                                                              bool isProtected,
                                                              bool useFramebufferCache) {
@@ -1052,6 +1084,15 @@ status_t GLESRenderEngine::drawLayers(const DisplaySettings& display,
     }
 
     std::unique_ptr<BindNativeBufferAsFramebuffer> fbo;
+    // Unbinds an attached framebuffer on every return path; BindNativeBufferAsFramebuffer
+    // unbinds its own.
+    struct UnbindAttached {
+        bool bound = false;
+        ~UnbindAttached() {
+            if (bound) glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+    } unbindAttached;
+    const bool attach = useFramebufferCache && !mInProtectedContext;
     // Gathering layers that requested blur, we'll need them to decide when to render to an
     // offscreen buffer, and when to render to the native buffer.
     std::deque<const LayerSettings*> blurLayers;
@@ -1065,8 +1106,15 @@ status_t GLESRenderEngine::drawLayers(const DisplaySettings& display,
     const auto blurLayersSize = blurLayers.size();
 
     if (blurLayersSize == 0) {
-        fbo = std::make_unique<BindNativeBufferAsFramebuffer>(*this, buffer, useFramebufferCache);
-        if (fbo->getStatus() != NO_ERROR) {
+        GLFramebuffer* attached = attach ? getAttachedFramebuffer(buffer) : nullptr;
+        if (attached) {
+            attached->bind();
+            unbindAttached.bound = true;
+        } else {
+            fbo = std::make_unique<BindNativeBufferAsFramebuffer>(*this, buffer,
+                                                                  useFramebufferCache);
+        }
+        if (fbo && fbo->getStatus() != NO_ERROR) {
             ALOGE("Failed to bind framebuffer! Aborting GPU composition for buffer (%p).",
                   buffer->handle);
             checkErrors();
@@ -1122,9 +1170,16 @@ status_t GLESRenderEngine::drawLayers(const DisplaySettings& display,
 
             if (blurLayers.size() == 0) {
                 // Done blurring, time to bind the native FBO and render our blur onto it.
-                fbo = std::make_unique<BindNativeBufferAsFramebuffer>(*this, buffer,
-                                                                      useFramebufferCache);
-                status = fbo->getStatus();
+                GLFramebuffer* attached = attach ? getAttachedFramebuffer(buffer) : nullptr;
+                if (attached) {
+                    attached->bind();
+                    unbindAttached.bound = true;
+                    status = NO_ERROR;
+                } else {
+                    fbo = std::make_unique<BindNativeBufferAsFramebuffer>(*this, buffer,
+                                                                          useFramebufferCache);
+                    status = fbo->getStatus();
+                }
                 setViewportAndProjection(display.physicalDisplay, display.clip);
             } else {
                 // There's still something else to blur, so let's keep rendering to our FBO

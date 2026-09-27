@@ -45,6 +45,7 @@ class Texture;
 
 namespace gl {
 
+class GLFramebuffer;
 class GLImage;
 class BlurFilter;
 
@@ -214,6 +215,22 @@ private:
     // Cache of output images, keyed by corresponding GraphicBuffer ID.
     std::deque<std::pair<uint64_t, EGLImageKHR>> mFramebufferImageCache
             GUARDED_BY(mFramebufferImageCacheMutex);
+
+    // A texture and FBO per cached output buffer, each attached to that buffer's
+    // EGLImage once. Composing into the rotating display buffers then rebinds an FBO:
+    // retargeting one texture to a different EGLImage every frame makes drivers that
+    // map an image into the process at attach time (PowerVR SGX) map and unmap the
+    // whole buffer on each composition.
+    struct AttachedFramebuffer {
+        uint64_t bufferId;
+        EGLImageKHR image;
+        std::unique_ptr<GLFramebuffer> framebuffer;
+    };
+    std::deque<AttachedFramebuffer> mAttachedFramebuffers;
+    // Returns the attached framebuffer for nativeBuffer, or nullptr when the image or
+    // the FBO cannot be created, in which case the caller binds through
+    // mDrawingBuffer.
+    GLFramebuffer* getAttachedFramebuffer(ANativeWindowBuffer* nativeBuffer);
     // The only reason why we have this mutex is so that we don't segfault when
     // dumping info.
     std::mutex mFramebufferImageCacheMutex;
