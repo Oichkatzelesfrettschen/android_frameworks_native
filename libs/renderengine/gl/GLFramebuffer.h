@@ -40,6 +40,9 @@ public:
     bool setNativeWindowBuffer(ANativeWindowBuffer* nativeBuffer, bool isProtected,
                                const bool useFramebufferCache) override;
     void allocateBuffers(uint32_t width, uint32_t height, void* data = nullptr);
+    // Attaches image, which this framebuffer does not own, as the color
+    // attachment of its texture and FBO; returns true when the FBO is complete.
+    bool attachImage(EGLImageKHR image, int32_t width, int32_t height);
     EGLImageKHR getEGLImage() const { return mEGLImage; }
     uint32_t getTextureName() const { return mTextureName; }
     uint32_t getFramebufferName() const { return mFramebufferName; }
