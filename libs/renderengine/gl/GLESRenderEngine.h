@@ -45,6 +45,7 @@ class Texture;
 
 namespace gl {
 
+class GLFramebuffer;
 class GLImage;
 class BlurFilter;
 
