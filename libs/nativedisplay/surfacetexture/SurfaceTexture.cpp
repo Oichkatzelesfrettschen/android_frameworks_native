@@ -148,15 +148,7 @@ status_t SurfaceTexture::discardNextBuffer() {
     Mutex::Autolock lock(mMutex);
     if (mAbandoned) return NO_INIT;
     if (mOpMode != OpMode::attachedToGL) return INVALID_OPERATION;
-    status_t status = mEGLConsumer.checkAndUpdateEglStateLocked(*this);
-    if (status != OK) return status;
-
-    BufferItem item;
-    status = ConsumerBase::acquireBufferLocked(&item, 0);
-    if (status != OK) return status;
-
-    // An unused buffer keeps its producer fence and never enters the EGL cache.
-    return ConsumerBase::releaseBufferLocked(item.mSlot, mSlots[item.mSlot].mGraphicBuffer);
+    return mEGLConsumer.discardNextBuffer(*this);
 }
 
 status_t SurfaceTexture::releaseTexImage() {

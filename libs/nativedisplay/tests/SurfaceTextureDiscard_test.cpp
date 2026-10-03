@@ -12,12 +12,12 @@ class SurfaceTextureDiscardTest : public ::testing::Test {
 protected:
     void SetUp() override {
         mDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        ASSERT_EQ(EGL_TRUE, eglInitialize(mDisplay, nullptr, nullptr));
+        ASSERT_EQ(EGLBoolean(EGL_TRUE), eglInitialize(mDisplay, nullptr, nullptr));
         const EGLint configAttributes[] = {EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
                 EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_RED_SIZE, 8,
                 EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_NONE};
         EGLint count = 0;
-        ASSERT_EQ(EGL_TRUE, eglChooseConfig(mDisplay, configAttributes, &mConfig, 1, &count));
+        ASSERT_EQ(EGLBoolean(EGL_TRUE), eglChooseConfig(mDisplay, configAttributes, &mConfig, 1, &count));
         ASSERT_EQ(1, count);
         const EGLint contextAttributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
         const EGLint surfaceAttributes[] = {EGL_WIDTH, 8, EGL_HEIGHT, 8, EGL_NONE};
@@ -25,7 +25,7 @@ protected:
         mSurface = eglCreatePbufferSurface(mDisplay, mConfig, surfaceAttributes);
         ASSERT_NE(EGL_NO_CONTEXT, mContext);
         ASSERT_NE(EGL_NO_SURFACE, mSurface);
-        ASSERT_EQ(EGL_TRUE, eglMakeCurrent(mDisplay, mSurface, mSurface, mContext));
+        ASSERT_EQ(EGLBoolean(EGL_TRUE), eglMakeCurrent(mDisplay, mSurface, mSurface, mContext));
         glGenTextures(1, &mTextureName);
         glBindTexture(GL_TEXTURE_EXTERNAL_OES, mTextureName);
         glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -78,7 +78,8 @@ protected:
         }
         ASSERT_EQ(OK, buffer->unlock());
         ASSERT_EQ(OK, native_window_set_buffers_timestamp(mWindow.get(), timestamp));
-        ASSERT_EQ(OK, mWindow->queueBuffer(mWindow.get(), windowBuffer, -1));
+        ANativeWindow* window = mWindow.get();
+        ASSERT_EQ(OK, window->queueBuffer(window, windowBuffer, -1));
     }
 
     void expectColor(unsigned char red, unsigned char green, unsigned char blue) {
@@ -187,11 +188,11 @@ TEST_F(SurfaceTextureDiscardTest, OtherContextRejectsDiscardAndOriginalContextRe
     const EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
     EGLContext otherContext = eglCreateContext(mDisplay, mConfig, EGL_NO_CONTEXT, attributes);
     ASSERT_NE(EGL_NO_CONTEXT, otherContext);
-    ASSERT_EQ(EGL_TRUE, eglMakeCurrent(mDisplay, mSurface, mSurface, otherContext));
+    ASSERT_EQ(EGLBoolean(EGL_TRUE), eglMakeCurrent(mDisplay, mSurface, mSurface, otherContext));
     EXPECT_EQ(INVALID_OPERATION, mTexture->discardNextBuffer());
-    ASSERT_EQ(EGL_TRUE, eglMakeCurrent(mDisplay, mSurface, mSurface, mContext));
+    ASSERT_EQ(EGLBoolean(EGL_TRUE), eglMakeCurrent(mDisplay, mSurface, mSurface, mContext));
     EXPECT_EQ(BufferQueue::NO_BUFFER_AVAILABLE, mTexture->discardNextBuffer());
-    EXPECT_EQ(EGL_TRUE, eglDestroyContext(mDisplay, otherContext));
+    EXPECT_EQ(EGLBoolean(EGL_TRUE), eglDestroyContext(mDisplay, otherContext));
 }
 
 } // namespace android
