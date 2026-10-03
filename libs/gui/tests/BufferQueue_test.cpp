@@ -156,7 +156,7 @@ TEST_F(BufferQueueTest, DISABLED_BufferQueueInAnotherProcess) {
     mProducer = interface_cast<IGraphicBufferProducer>(binderProducer);
     EXPECT_TRUE(mProducer != nullptr);
     sp<IBinder> binderConsumer =
-        serviceManager->getService(CONSUMER_NAME);
+        serviceManager->waitForService(CONSUMER_NAME);
     mConsumer = interface_cast<IGraphicBufferConsumer>(binderConsumer);
     EXPECT_TRUE(mConsumer != nullptr);
 
@@ -1647,6 +1647,7 @@ TEST_F(BufferQueueTest, TestAdditionalOptions) {
     EXPECT_EQ(ADATASPACE_UNKNOWN, dataSpace);
 }
 
+#if COM_ANDROID_GRAPHICS_LIBUI_FLAGS_APPLY_PICTURE_PROFILES
 TEST_F(BufferQueueTest, PassesThroughPictureProfileHandle) {
     createBufferQueue();
     sp<MockConsumer> mc(new MockConsumer);
@@ -1703,5 +1704,7 @@ TEST_F(BufferQueueTest, PassesThroughPictureProfileHandle) {
         ASSERT_FALSE(item.mPictureProfileHandle.has_value());
     }
 }
+
+#endif // COM_ANDROID_GRAPHICS_LIBUI_FLAGS_APPLY_PICTURE_PROFILES
 
 } // namespace android
