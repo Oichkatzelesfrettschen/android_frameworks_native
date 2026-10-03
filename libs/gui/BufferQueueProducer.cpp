@@ -307,6 +307,10 @@ status_t BufferQueueProducer::waitForFreeSlotThenRelock(FreeSlotCaller caller,
             BQ_LOGE("%s: BufferQueue has been abandoned", callerString);
             return NO_INIT;
         }
+        if (mCore->mConnectedApi == BufferQueueCore::NO_CONNECTED_API) {
+            BQ_LOGE("%s: producer disconnect cancels the pending operation", callerString);
+            return NO_INIT;
+        }
 
         int dequeuedCount = 0;
         int acquiredCount = 0;

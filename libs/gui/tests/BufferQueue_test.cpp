@@ -882,6 +882,34 @@ TEST_F(BufferQueueTest, DeadlineFreeFifoWakesOnConsumerAbandonment) {
     EXPECT_EQ(NO_INIT, result);
 }
 
+TEST_F(BufferQueueTest, DeadlineFreeFifoWakesOnProducerDisconnect) {
+    createDeadlineFreeFifo();
+    ASSERT_FALSE(HasFatalFailure());
+    queueTestBuffer(false);
+    queueTestBuffer(false);
+    ASSERT_FALSE(HasFatalFailure());
+    auto pending = std::async(std::launch::async, [producer = mProducer] {
+        int slot = BufferQueue::INVALID_BUFFER_SLOT;
+        sp<Fence> fence;
+        return producer->dequeueBuffer(&slot, &fence, 0, 0, 0,
+                                       TEST_PRODUCER_USAGE_BITS, nullptr, nullptr);
+    });
+    const auto stalled = pending.wait_for(150ms);
+    const status_t disconnected = mProducer->disconnect(NATIVE_WINDOW_API_CPU);
+    const auto resumed = pending.wait_for(2s);
+    if (resumed != std::future_status::ready) mConsumer->consumerDisconnect();
+    const status_t result = pending.get();
+    EXPECT_EQ(std::future_status::timeout, stalled);
+    EXPECT_EQ(OK, disconnected);
+    EXPECT_EQ(std::future_status::ready, resumed);
+    EXPECT_EQ(NO_INIT, result);
+    IGraphicBufferProducer::QueueBufferOutput output;
+    ASSERT_EQ(OK, mProducer->connect(new StubProducerListener, NATIVE_WINDOW_API_CPU,
+                                    true, &output));
+    queueTestBuffer(false);
+    queueTestBuffer(true);
+}
+
 TEST_F(BufferQueueTest, DeadlineFreeFifoReconnectRestoresQueueReplacement) {
     createDeadlineFreeFifo();
     ASSERT_FALSE(HasFatalFailure());
