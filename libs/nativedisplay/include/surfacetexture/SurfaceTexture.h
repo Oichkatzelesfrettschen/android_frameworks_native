@@ -130,6 +130,15 @@ public:
     status_t updateTexImage();
 
     /**
+     * Release one queued buffer without changing the texture bound to GL.
+     * The producer fence accompanies the released buffer; the consumer performs
+     * no access to its pixels. Call on the attached GL context while another
+     * stream supplies the output pixels. Returns NO_BUFFER_AVAILABLE for an
+     * empty queue and leaves the current texture and timestamp unchanged.
+     */
+    status_t discardNextBuffer();
+
+    /**
      * releaseTexImage releases the texture acquired in updateTexImage().
      * This is intended to be used in single buffer mode.
      *
