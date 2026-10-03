@@ -47,6 +47,8 @@ cc_test {
     defaults: ["libgui-defaults"],
 
     cppflags: [
+        // Embedded GUI singletons require distinct ownership from the test-server DSO.
+        "-fvisibility=hidden",
         "-Wall",
         "-Werror",
         "-Wextra",
