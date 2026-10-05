@@ -49,7 +49,8 @@ public:
     using Visitor = std::function<void(Layer*)>;
 
 private:
-    const StateSet mStateSet;
+    // Held to mirror the constructor's argument; no member function reads it.
+    [[maybe_unused]] const StateSet mStateSet;
 };
 }
 
