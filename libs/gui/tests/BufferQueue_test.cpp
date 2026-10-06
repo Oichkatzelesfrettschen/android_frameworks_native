@@ -72,6 +72,32 @@ protected:
         BufferQueue::createBufferQueue(&mProducer, &mConsumer);
     }
 
+    void createDeadlineFreeFifo() {
+        createBufferQueue();
+        ASSERT_EQ(OK, mConsumer->consumerConnect(new MockConsumer, true));
+        IGraphicBufferProducer::QueueBufferOutput output;
+        ASSERT_EQ(OK, mProducer->connect(new StubProducerListener, NATIVE_WINDOW_API_CPU,
+                                        true, &output));
+        ASSERT_EQ(OK, mProducer->setDequeueTimeout(1));
+        ASSERT_EQ(OK, mProducer->setAsyncMode(false));
+        ASSERT_EQ(OK, mProducer->setDequeueTimeout(-1));
+    }
+
+    void queueTestBuffer(bool expectReplacement) {
+        int slot = BufferQueue::INVALID_BUFFER_SLOT;
+        sp<Fence> fence;
+        status_t result = mProducer->dequeueBuffer(&slot, &fence, 0, 0, 0,
+                                                  TEST_PRODUCER_USAGE_BITS, nullptr, nullptr);
+        ASSERT_GE(result, 0);
+        sp<GraphicBuffer> buffer;
+        ASSERT_EQ(OK, mProducer->requestBuffer(slot, &buffer));
+        IGraphicBufferProducer::QueueBufferInput input(0ull, true, HAL_DATASPACE_UNKNOWN,
+                Rect::INVALID_RECT, NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, Fence::NO_FENCE);
+        IGraphicBufferProducer::QueueBufferOutput output;
+        ASSERT_EQ(OK, mProducer->queueBuffer(slot, input, &output));
+        ASSERT_EQ(expectReplacement, output.bufferReplaced);
+    }
+
     void testBufferItem(const IGraphicBufferProducer::QueueBufferInput& input,
             const BufferItem& item) {
         int64_t timestamp;
@@ -130,7 +156,7 @@ TEST_F(BufferQueueTest, DISABLED_BufferQueueInAnotherProcess) {
     mProducer = interface_cast<IGraphicBufferProducer>(binderProducer);
     EXPECT_TRUE(mProducer != nullptr);
     sp<IBinder> binderConsumer =
-        serviceManager->getService(CONSUMER_NAME);
+        serviceManager->waitForService(CONSUMER_NAME);
     mConsumer = interface_cast<IGraphicBufferConsumer>(binderConsumer);
     EXPECT_TRUE(mConsumer != nullptr);
 
@@ -803,6 +829,100 @@ TEST_F(BufferQueueTest, TestTimeouts) {
     startTime = systemTime();
     ASSERT_EQ(TIMED_OUT, mProducer->attachBuffer(&slot, buffer));
     ASSERT_GE(systemTime() - startTime, TIMEOUT);
+}
+
+TEST_F(BufferQueueTest, DeadlineFreeFifoWaitsForConsumerRelease) {
+    createDeadlineFreeFifo();
+    ASSERT_FALSE(HasFatalFailure());
+    queueTestBuffer(false);
+    queueTestBuffer(false);
+    ASSERT_FALSE(HasFatalFailure());
+    auto pending = std::async(std::launch::async, [producer = mProducer] {
+        int slot = BufferQueue::INVALID_BUFFER_SLOT;
+        sp<Fence> fence;
+        status_t result = producer->dequeueBuffer(&slot, &fence, 0, 0, 0,
+                                                  TEST_PRODUCER_USAGE_BITS, nullptr, nullptr);
+        if (result >= 0) producer->cancelBuffer(slot, Fence::NO_FENCE);
+        return result;
+    });
+    const auto stalled = pending.wait_for(150ms);
+    BufferItem item;
+    const status_t acquired = mConsumer->acquireBuffer(&item, 0);
+    status_t released = BAD_VALUE;
+    if (acquired == OK) {
+        released = mConsumer->releaseBuffer(item.mSlot, item.mFrameNumber, Fence::NO_FENCE);
+    }
+    const auto resumed = pending.wait_for(2s);
+    if (resumed != std::future_status::ready) mConsumer->consumerDisconnect();
+    const status_t result = pending.get();
+    EXPECT_EQ(std::future_status::timeout, stalled);
+    EXPECT_EQ(OK, acquired);
+    EXPECT_EQ(OK, released);
+    EXPECT_EQ(std::future_status::ready, resumed);
+    EXPECT_GE(result, 0);
+}
+
+TEST_F(BufferQueueTest, DeadlineFreeFifoWakesOnConsumerAbandonment) {
+    createDeadlineFreeFifo();
+    ASSERT_FALSE(HasFatalFailure());
+    queueTestBuffer(false);
+    queueTestBuffer(false);
+    ASSERT_FALSE(HasFatalFailure());
+    auto pending = std::async(std::launch::async, [producer = mProducer] {
+        int slot = BufferQueue::INVALID_BUFFER_SLOT;
+        sp<Fence> fence;
+        return producer->dequeueBuffer(&slot, &fence, 0, 0, 0,
+                                       TEST_PRODUCER_USAGE_BITS, nullptr, nullptr);
+    });
+    const auto stalled = pending.wait_for(150ms);
+    const status_t disconnected = mConsumer->consumerDisconnect();
+    const status_t result = pending.get();
+    EXPECT_EQ(std::future_status::timeout, stalled);
+    EXPECT_EQ(OK, disconnected);
+    EXPECT_EQ(NO_INIT, result);
+}
+
+TEST_F(BufferQueueTest, DeadlineFreeFifoWakesOnProducerDisconnect) {
+    createDeadlineFreeFifo();
+    ASSERT_FALSE(HasFatalFailure());
+    queueTestBuffer(false);
+    queueTestBuffer(false);
+    ASSERT_FALSE(HasFatalFailure());
+    auto pending = std::async(std::launch::async, [producer = mProducer] {
+        int slot = BufferQueue::INVALID_BUFFER_SLOT;
+        sp<Fence> fence;
+        return producer->dequeueBuffer(&slot, &fence, 0, 0, 0,
+                                       TEST_PRODUCER_USAGE_BITS, nullptr, nullptr);
+    });
+    const auto stalled = pending.wait_for(150ms);
+    const status_t disconnected = mProducer->disconnect(NATIVE_WINDOW_API_CPU);
+    const auto resumed = pending.wait_for(2s);
+    if (resumed != std::future_status::ready) mConsumer->consumerDisconnect();
+    const status_t result = pending.get();
+    EXPECT_EQ(std::future_status::timeout, stalled);
+    EXPECT_EQ(OK, disconnected);
+    EXPECT_EQ(std::future_status::ready, resumed);
+    EXPECT_EQ(NO_INIT, result);
+    IGraphicBufferProducer::QueueBufferOutput output;
+    ASSERT_EQ(OK, mProducer->connect(new StubProducerListener, NATIVE_WINDOW_API_CPU,
+                                    true, &output));
+    queueTestBuffer(false);
+    queueTestBuffer(true);
+}
+
+TEST_F(BufferQueueTest, DeadlineFreeFifoReconnectRestoresQueueReplacement) {
+    createDeadlineFreeFifo();
+    ASSERT_FALSE(HasFatalFailure());
+    queueTestBuffer(false);
+    queueTestBuffer(false);
+    ASSERT_FALSE(HasFatalFailure());
+    ASSERT_EQ(OK, mProducer->disconnect(NATIVE_WINDOW_API_CPU));
+    ASSERT_EQ(OK, mProducer->setDequeueTimeout(-1));
+    IGraphicBufferProducer::QueueBufferOutput output;
+    ASSERT_EQ(OK, mProducer->connect(new StubProducerListener, NATIVE_WINDOW_API_CPU,
+                                    true, &output));
+    queueTestBuffer(false);
+    queueTestBuffer(true);
 }
 
 TEST_F(BufferQueueTest, CanAttachWhileDisallowingAllocation) {
@@ -1555,6 +1675,7 @@ TEST_F(BufferQueueTest, TestAdditionalOptions) {
     EXPECT_EQ(ADATASPACE_UNKNOWN, dataSpace);
 }
 
+#if COM_ANDROID_GRAPHICS_LIBUI_FLAGS_APPLY_PICTURE_PROFILES
 TEST_F(BufferQueueTest, PassesThroughPictureProfileHandle) {
     createBufferQueue();
     sp<MockConsumer> mc(new MockConsumer);
@@ -1611,5 +1732,7 @@ TEST_F(BufferQueueTest, PassesThroughPictureProfileHandle) {
         ASSERT_FALSE(item.mPictureProfileHandle.has_value());
     }
 }
+
+#endif // COM_ANDROID_GRAPHICS_LIBUI_FLAGS_APPLY_PICTURE_PROFILES
 
 } // namespace android

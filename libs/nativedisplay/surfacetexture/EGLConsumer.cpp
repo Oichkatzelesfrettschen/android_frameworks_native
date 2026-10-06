@@ -122,6 +122,17 @@ status_t EGLConsumer::updateTexImage(SurfaceTexture& st) {
     return bindTextureImageLocked(st);
 }
 
+status_t EGLConsumer::discardNextBuffer(SurfaceTexture& st) {
+    status_t status = checkAndUpdateEglStateLocked(st);
+    if (status != OK) return status;
+    BufferItem item;
+    status = st.ConsumerBase::acquireBufferLocked(&item, 0);
+    if (status != OK) return status;
+
+    // An unused buffer keeps its producer fence and never enters the EGL cache.
+    return st.ConsumerBase::releaseBufferLocked(item.mSlot, st.mSlots[item.mSlot].mGraphicBuffer);
+}
+
 status_t EGLConsumer::releaseTexImage(SurfaceTexture& st) {
     // Make sure the EGL state is the same as in previous calls.
     status_t err = NO_ERROR;
