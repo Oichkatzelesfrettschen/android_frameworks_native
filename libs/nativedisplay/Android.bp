@@ -90,3 +90,19 @@ cc_library_shared {
         "libnativehelper_header_only",
     ],
 }
+
+cc_test {
+    name: "surface_texture_discard_test",
+    test_suites: ["device-tests"],
+    srcs: ["tests/SurfaceTextureDiscard_test.cpp"],
+    cflags: ["-Wall", "-Wextra", "-Werror"],
+    shared_libs: [
+        "libnativedisplay",
+        "libgui",
+        "libui",
+        "libutils",
+        "libEGL",
+        "libGLESv2",
+    ],
+    static_libs: ["libguiflags"],
+}
