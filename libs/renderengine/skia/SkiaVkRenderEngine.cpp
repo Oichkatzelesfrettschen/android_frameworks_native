@@ -65,6 +65,7 @@ static void sSetupVulkanInterface() {
 bool RenderEngine::canSupport(GraphicsApi graphicsApi) {
     switch (graphicsApi) {
         case GraphicsApi::GL:
+        case GraphicsApi::GLES:
             return true;
         case GraphicsApi::VK: {
             // Static local variables are initialized once, on first invocation of the function.
@@ -88,6 +89,7 @@ bool RenderEngine::canSupport(GraphicsApi graphicsApi) {
 void RenderEngine::teardown(GraphicsApi graphicsApi) {
     switch (graphicsApi) {
         case GraphicsApi::GL:
+        case GraphicsApi::GLES:
             break;
         case GraphicsApi::VK: {
             if (sVulkanInterface.isInitialized()) {
