@@ -873,6 +873,10 @@ void chooseRenderEngineType(renderengine::RenderEngineCreationArgs::Builder& bui
     } else if (strcmp(prop, "skiaglthreaded") == 0) {
         builder.setThreaded(renderengine::RenderEngine::Threaded::YES)
                 .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::GL);
+    } else if (strcmp(prop, "gles") == 0) {
+        // GLESRenderEngine renders on the RenderEngine thread, like the Skia engines.
+        builder.setThreaded(renderengine::RenderEngine::Threaded::YES)
+                .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::GLES);
     } else if (strcmp(prop, "skiavk") == 0) {
         builder.setThreaded(renderengine::RenderEngine::Threaded::NO)
                 .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::VK);

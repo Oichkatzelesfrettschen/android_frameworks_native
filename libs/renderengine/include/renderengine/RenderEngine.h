@@ -128,9 +128,12 @@ public:
         YES,
     };
 
+    // GL and VK select a Skia (Ganesh or Graphite) engine; GLES selects GLESRenderEngine, which
+    // ignores SkiaBackend. The numeric values of GL and VK are fixed for static_cast callers.
     enum class GraphicsApi {
         GL,
         VK,
+        GLES,
     };
 
     enum class SkiaBackend {

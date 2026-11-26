@@ -54,13 +54,19 @@ std::unique_ptr<RenderEngine> RenderEngine::create(const RenderEngineCreationArg
     const RenderEngine::SkiaBackend actualSkiaBackend = RenderEngine::SkiaBackend::GANESH;
 #endif
 
-    ALOGD("%sRenderEngine with %s Backend (%s)", args.threaded == Threaded::YES ? "Threaded " : "",
-          args.graphicsApi == GraphicsApi::GL ? "SkiaGL" : "SkiaVK",
-          actualSkiaBackend == SkiaBackend::GANESH ? "Ganesh" : "Graphite");
+    if (args.graphicsApi == GraphicsApi::GLES) {
+        ALOGD("%sRenderEngine with GLES Backend",
+              args.threaded == Threaded::YES ? "Threaded " : "");
+    } else {
+        ALOGD("%sRenderEngine with %s Backend (%s)",
+              args.threaded == Threaded::YES ? "Threaded " : "",
+              args.graphicsApi == GraphicsApi::GL ? "SkiaGL" : "SkiaVK",
+              actualSkiaBackend == SkiaBackend::GANESH ? "Ganesh" : "Graphite");
+    }
 
 // TODO: b/341728634 - Clean up conditional compilation.
 #if COMPILE_GRAPHITE_RENDERENGINE
-    if (actualSkiaBackend == SkiaBackend::GRAPHITE) {
+    if (actualSkiaBackend == SkiaBackend::GRAPHITE && args.graphicsApi != GraphicsApi::GLES) {
         createInstanceFactory = [args]() {
             return android::renderengine::skia::GraphiteVkRenderEngine::create(args);
         };
@@ -71,9 +77,13 @@ std::unique_ptr<RenderEngine> RenderEngine::create(const RenderEngineCreationArg
             createInstanceFactory = [args]() {
                 return android::renderengine::skia::GaneshVkRenderEngine::create(args);
             };
-        } else { // GL
+        } else if (args.graphicsApi == GraphicsApi::GLES) {
             createInstanceFactory = [args]() {
                 return android::renderengine::gl::GLESRenderEngine::create(args);
+            };
+        } else { // GL
+            createInstanceFactory = [args]() {
+                return android::renderengine::skia::SkiaGLRenderEngine::create(args);
             };
         }
     }
