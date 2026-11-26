@@ -55,6 +55,9 @@ public:
      */
     status_t releaseTexImage(SurfaceTexture& st);
 
+    // Discard a queued buffer while preserving the image bound to the current context.
+    status_t discardNextBuffer(SurfaceTexture& st);
+
     /**
      * detachFromContext detaches the EGLConsumer from the calling thread's
      * current OpenGL ES context.  This context must be the same as the context

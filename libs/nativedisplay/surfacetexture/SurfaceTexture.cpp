@@ -144,6 +144,13 @@ status_t SurfaceTexture::updateTexImage() {
     return mEGLConsumer.updateTexImage(*this);
 }
 
+status_t SurfaceTexture::discardNextBuffer() {
+    Mutex::Autolock lock(mMutex);
+    if (mAbandoned) return NO_INIT;
+    if (mOpMode != OpMode::attachedToGL) return INVALID_OPERATION;
+    return mEGLConsumer.discardNextBuffer(*this);
+}
+
 status_t SurfaceTexture::releaseTexImage() {
     // releaseTexImage can be invoked even when not attached to a GL context.
     ATRACE_CALL();
